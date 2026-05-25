@@ -140,10 +140,22 @@ def execute(instruction):
 
         # Load Byte
         if (func3 == 0x0):
-            registers[rd] = M[rs1 +]
+            value = mem[address]
+            if (value & 0x80): # if value is negative
+                value = value - 0x100
+            registers[rd] = value
+        elif (func3 == 0x1):
+            value = mem[address] | mem[address + 1] << 8
+            if (value & 0x8000):
+                value = value - 0x1000
+            registers[rd] = value
+        elif (func3 == 0x2):
+            registers[rd] = mem[address] | mem[address + 1] << 8 | mem[address + 2] << 16 | mem[address + 3] << 24
 
-
-
+        elif (func3 == 0x04):
+            value = mem[address]
+        elif (func3 == 0x05):
+            registers[rd] = mem[address] | mem[address + 1] << 8
         
 
 
