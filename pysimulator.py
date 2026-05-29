@@ -222,17 +222,20 @@ def execute(instruction):
             if (value & 0x80): # if value is negative
                 value = value - 0x100
             registers[rd] = u32(value)
+        # Load Half
         elif (func3 == 0x1):
             value = mem[address] | mem[address + 1] << 8
             if (value & 0x8000):
                 value = value - 0x10000
             registers[rd] = u32(value)
+        # Load Word
         elif (func3 == 0x2):
             registers[rd] = u32(mem[address] | mem[address + 1] << 8 | mem[address + 2] << 16 | mem[address + 3] << 24)
-
+        # Load Byte (U)
         elif (func3 == 0x04):
             value = u32(mem[address])
             registers[rd] = value
+        # Load Half (U)
         elif (func3 == 0x05):
             registers[rd] = u32(mem[address] | mem[address + 1] << 8)
 
@@ -379,4 +382,35 @@ def load_program(instruction, start_address=0):
 
 
 
-## add run loop.
+# Run Loop
+
+def run(max_steps=100000):
+    global running
+
+    steps = 0
+    running = True
+
+    while running:
+        if (pc < 0 or pc + 3 >= len(mem)):
+            raise Exception("PC out of memory bounds.")
+        
+        instruction = load_word(pc)
+        execute(instruction)
+
+        steps += 1
+        if steps > max_steps:
+            raise Exception("Program did not terminate.")
+
+# RESET
+
+def reset():
+    global pc
+    global running
+    global registers
+    global mem
+
+    registers = [0] * 32
+    pc = 0
+    running = True
+    mem = bytearray(4096)
+
