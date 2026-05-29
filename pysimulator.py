@@ -88,6 +88,25 @@ def get_imm_u(instruction):
     imm = instruction & 0xFFFFF000
     return imm
 
+## Basic CPU simulator logic
+
+# Load Word
+def load_word(address):
+    if (address < 0 or address + 3 >= len(mem)):
+        raise Exception("Memory read is out of bounds.")
+    return (mem[address] | mem[address + 1] << 8 | mem[address + 2] << 16 | mem[address + 3] << 24)
+
+# Store Word
+def store_word(address, val):
+    if (address < 0 or address + 3 >= len(mem)):
+        raise Exception("Memory write out of bounds.")
+    val = u32(val)
+    mem[address] = val & 0xFF
+    mem[address + 1] = (val >> 8) & 0xFF
+    mem[address + 2] = (val >> 16) & 0xFF
+    mem[address + 3] = (val >> 24) & 0xFF
+
+
 def execute(instruction):
     op = get_opcode(instruction)
     global pc
@@ -347,8 +366,17 @@ def execute(instruction):
     registers[0] = 0
 
     
+# Load Program
+
+def load_program(instruction, start_address=0):
+    global pc
+    pc = start_address
+
+    address = start_address
+    for i in instruction:
+        store_word(address, i)
+        address += 4
 
 
 
-
-
+## add run loop.
