@@ -13,6 +13,7 @@ def s32(x):
     x = x & 0xFFFFFFFF
     if (x & 0x80000000):
         return x - 0x100000000
+    return x
     
 # use to write back to register
 def u32(x):
@@ -43,7 +44,11 @@ def get_func7(instruction):
 
 # For I-Type
 def get_imm(instruction):
-    return (instruction >> 20) & 0xFFF
+
+    imm = (instruction >> 20) & 0xFFF
+    if (imm & 0x800):
+        imm -= 0x1000
+    return imm
 
 
 # For S-Type (sign bit is 11)
@@ -74,18 +79,19 @@ def get_imm_j(instruction):
     imm_19_12 = (instruction >> 12) & 0xFF
 
     imm = (imm_20 << 20) | (imm_19_12 << 12) | (imm_11 << 11) | (imm_10_1 << 1)
-    if (imm & 0x10000):
+    if (imm & 0x100000):
         imm = imm - 0x200000
     return imm
 
 # For U-Type (20 bits)
 def get_imm_u(instruction):
-    imm_31_12 = (instruction >> 12) & 0xFFFFF
-    imm = imm_31_12
+    imm = instruction & 0xFFFFF000
     return imm
 
 def execute(instruction):
     op = get_opcode(instruction)
+    global pc
+    global running
 
     # R - Type Instruction (ALL 10)
     if (op == 0x33):
@@ -131,6 +137,8 @@ def execute(instruction):
                 registers[rd] = 1
             else:
                 registers[rd] = 0
+        else:
+            raise Exception("Unknown R-type instruction.")
         pc += 4
         
     # I - Type Instruction
@@ -175,6 +183,8 @@ def execute(instruction):
                 registers[rd] = 1
             else:
                 registers[rd] = 0
+        else:
+            raise Exception("Unknown I-type instruction.")
         pc += 4
 
 
@@ -196,16 +206,19 @@ def execute(instruction):
         elif (func3 == 0x1):
             value = mem[address] | mem[address + 1] << 8
             if (value & 0x8000):
-                value = value - 0x1000
+                value = value - 0x10000
             registers[rd] = u32(value)
         elif (func3 == 0x2):
             registers[rd] = u32(mem[address] | mem[address + 1] << 8 | mem[address + 2] << 16 | mem[address + 3] << 24)
 
         elif (func3 == 0x04):
             value = u32(mem[address])
+            registers[rd] = value
         elif (func3 == 0x05):
             registers[rd] = u32(mem[address] | mem[address + 1] << 8)
 
+        else:
+            raise Exception("Unknown load instruction.")
         pc += 4
         
     
@@ -230,7 +243,10 @@ def execute(instruction):
             mem[address + 1] = (u32(registers[rs2]) >> 8) & 0xFF
             mem[address + 2] = (u32(registers[rs2]) >> 16) & 0xFF
             mem[address + 3] = (u32(registers[rs2]) >> 24) & 0xFF
+        else:
+            raise Exception("Unknown store instructions.")
         pc += 4
+
 
     # B - Type Instructions
     elif (op == 0x63):
@@ -275,6 +291,8 @@ def execute(instruction):
                 pc += imm_b
             else:
                 pc += 4
+        else:
+            raise Exception("Unknown branch instruction")
 
     # J - Type Instruction
     # JAL
@@ -287,12 +305,17 @@ def execute(instruction):
     # I - Type
     # JALR
     elif (op == 0x67):
-        func3 = get_func3(function)
+        func3 = get_func3(instruction)
         if (func3 == 0x0):
             rd = get_rd(instruction)
-            imm_j = get_imm_j(instruction)
-            registers[rd] += u32(pc + 4)
-            pc = u32(registers[rs1] + imm) & ~1
+            rs1 = get_rs1(instruction)
+            imm_i = get_imm(instruction)
+
+            return_address = pc + 4
+            pc = u32(registers[rs1] + imm_i) & ~1
+            registers[rd] = u32(return_address)
+        else:
+            raise Exception("Unknown JALR instruction.")
     # U - Type
     # LUI
     elif (op == 0x37):
@@ -318,8 +341,10 @@ def execute(instruction):
         elif (func3 == 0x0 and imm_i == 1):
             running = False
         else:
-            raise Exception("Unkwown system instruction")
-
+            raise Exception("Unknown system instruction")
+    else:
+        raise Exception("Unknown opcode.")
+    registers[0] = 0
 
     
 
